@@ -1,0 +1,31 @@
+services:
+  cc-switch:
+    image: ghcr.io/synebula/cc-switch:${CC_SWITCH_IMAGE_TAG:-latest}
+    container_name: cc-switch
+    restart: unless-stopped
+    ports:
+      # Web UI + API (/invoke) + SSE (/events)
+      - "8787:8787"
+      # Local proxy (optional)
+      - "5000:5000"
+    environment:
+      # Persist all data/config under /host-home (~ in container)
+      CC_SWITCH_TEST_HOME: /host-home
+      HOME: /host-home
+
+      # Web backend listen
+      CC_SWITCH_WEB_LISTEN: 0.0.0.0:8787
+
+      # Web auth (set this in a local .env)
+      CC_SWITCH_WEB_AUTH_TOKEN: ${CC_SWITCH_WEB_AUTH_TOKEN:-change-me}
+
+      # CORS (recommend restricting in production)
+      CC_SWITCH_WEB_ALLOW_ORIGIN: ${CC_SWITCH_WEB_ALLOW_ORIGIN:-*}
+
+      # Auto-start proxy server
+      CC_SWITCH_AUTO_START_PROXY: ${CC_SWITCH_AUTO_START_PROXY:-1}
+      CC_SWITCH_PROXY_LISTEN_ADDRESS: ${CC_SWITCH_PROXY_LISTEN_ADDRESS:-0.0.0.0}
+      CC_SWITCH_PROXY_LISTEN_PORT: ${CC_SWITCH_PROXY_LISTEN_PORT:-5000}
+    volumes:
+      # Use a dedicated directory instead of mounting the whole $HOME.
+      - ./cc-switch-home:/host-home

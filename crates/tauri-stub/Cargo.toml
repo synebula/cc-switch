@@ -1,0 +1,10 @@
+[package]
+name = "tauri"
+version = "0.0.0"
+edition = "2021"
+rust-version = "1.85.0"
+license = "MIT"
+
+[dependencies]
+tokio = { version = "1", features = ["rt", "sync"] }
+

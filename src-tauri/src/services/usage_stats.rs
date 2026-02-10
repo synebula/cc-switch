@@ -62,6 +62,18 @@ pub struct ModelStats {
     pub avg_cost_per_request: String,
 }
 
+/// 模型定价信息
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelPricingInfo {
+    pub model_id: String,
+    pub display_name: String,
+    pub input_cost_per_million: String,
+    pub output_cost_per_million: String,
+    pub cache_read_cost_per_million: String,
+    pub cache_creation_cost_per_million: String,
+}
+
 /// 请求日志过滤器
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -647,6 +659,76 @@ impl Database {
             monthly_limit: limit_monthly.map(|l| format!("{l:.2}")),
             monthly_exceeded,
         })
+    }
+
+    /// 获取模型定价列表
+    pub fn get_model_pricing(&self) -> Result<Vec<ModelPricingInfo>, AppError> {
+        self.ensure_model_pricing_seeded()?;
+        let conn = lock_conn!(self.conn);
+
+        let mut stmt = conn.prepare(
+            "SELECT model_id, display_name, input_cost_per_million, output_cost_per_million,
+                    cache_read_cost_per_million, cache_creation_cost_per_million
+             FROM model_pricing
+             ORDER BY display_name",
+        )?;
+
+        let rows = stmt.query_map([], |row| {
+            Ok(ModelPricingInfo {
+                model_id: row.get(0)?,
+                display_name: row.get(1)?,
+                input_cost_per_million: row.get(2)?,
+                output_cost_per_million: row.get(3)?,
+                cache_read_cost_per_million: row.get(4)?,
+                cache_creation_cost_per_million: row.get(5)?,
+            })
+        })?;
+
+        let mut pricing = Vec::new();
+        for row in rows {
+            pricing.push(row?);
+        }
+        Ok(pricing)
+    }
+
+    /// 更新模型定价（INSERT OR REPLACE）
+    pub fn update_model_pricing(
+        &self,
+        model_id: &str,
+        display_name: &str,
+        input_cost: &str,
+        output_cost: &str,
+        cache_read_cost: &str,
+        cache_creation_cost: &str,
+    ) -> Result<(), AppError> {
+        let conn = lock_conn!(self.conn);
+        conn.execute(
+            "INSERT OR REPLACE INTO model_pricing (
+                model_id, display_name, input_cost_per_million, output_cost_per_million,
+                cache_read_cost_per_million, cache_creation_cost_per_million
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![
+                model_id,
+                display_name,
+                input_cost,
+                output_cost,
+                cache_read_cost,
+                cache_creation_cost
+            ],
+        )
+        .map_err(|e| AppError::Database(format!("更新模型定价失败: {e}")))?;
+        Ok(())
+    }
+
+    /// 删除模型定价
+    pub fn delete_model_pricing(&self, model_id: &str) -> Result<(), AppError> {
+        let conn = lock_conn!(self.conn);
+        conn.execute(
+            "DELETE FROM model_pricing WHERE model_id = ?1",
+            params![model_id],
+        )
+        .map_err(|e| AppError::Database(format!("删除模型定价失败: {e}")))?;
+        Ok(())
     }
 }
 

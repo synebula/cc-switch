@@ -1,0 +1,7 @@
+[workspace]
+resolver = "2"
+members = [
+  "crates/cc-switch-core",
+  "crates/cc-switch-service",
+  "crates/tauri-stub",
+]
